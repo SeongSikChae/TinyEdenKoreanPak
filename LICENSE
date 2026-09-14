@@ -1,3 +1,17 @@
+License scope
+=============
+
+This MIT License applies only to the original documentation, scripts, and
+original Korean translation contributions authored for this repository.
+
+It does not apply to Tiny Eden, any extracted or modified Tiny Eden game
+files, fonts, localization source text, trademarks, or other assets owned by
+Bajka Games, Digital Vortex Entertainment, or their licensors. It also does
+not apply to third-party binaries distributed with this repository.
+
+Third-party materials remain subject to their respective licenses and terms.
+See THIRD_PARTY_NOTICES.md for attribution and license information.
+
 MIT License
 
 Copyright (c) 2026 SeongSikChae

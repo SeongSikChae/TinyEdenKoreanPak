@@ -124,13 +124,19 @@ assert all(
 
 ## 5. 한글 폰트 pak 생성
 
-최신 원본 pak을 풉니다.
+저장소에는 원본 또는 수정 `CGH-Windows.pak`을 커밋하지 않습니다. 사용자의 정품 설치
+폴더에서 필요할 때 로컬로 생성하고 즉시 설치하는 구조를 유지합니다.
+
+일반 사용자는 저장소의 설치 스크립트를 실행합니다.
 
 ```powershell
-& .\repak.exe --aes-key $Key unpack -o "$Work\unpacked" $Pak
+$env:TINY_EDEN_AES_KEY = "본인이 확인한 AES 키"
+.\scripts\Install-KoreanPatch.ps1 `
+  -GamePath "F:\SteamLibrary\steamapps\common\Tiny Eden"
 ```
 
-다음 원본 폰트를 pak 안에서 찾습니다.
+스크립트는 원본 pak의 버전·크기·SHA-256을 검증하고 로컬 백업을 만든 후, repak을
+준비하고 pak을 풉니다. 다음 원본 폰트를 pak 안에서 찾습니다.
 
 `CGH/Content/__Trash/UI/Foundation/Fonts/NotoSans/NotoSansKR-Regular.ufont`
 
@@ -139,8 +145,8 @@ assert all(
 - `CGH/Content/__Trash/UI/Fonts/Noto_Sans_SC/static/NotoSansSC-*.ufont`
 - `CGH/Content/__Trash/UI/Fonts/MontserratAlternates/MontserratAlternates-*.ufont`
 
-게임에 이미 포함된 Noto Sans KR을 사용하므로 Windows 시스템 글꼴을 배포하지 않습니다.
-폰트 교체 후 원본과 같은 설정으로 패킹합니다.
+게임에 이미 포함된 Noto Sans KR을 사용하므로 Windows 시스템 글꼴이나 게임 폰트를
+저장소에서 배포하지 않습니다. 폰트 교체 후 원본과 같은 설정으로 로컬 패킹합니다.
 
 ```powershell
 $Seed = [Convert]::ToUInt32("B3C6F6DB", 16)
@@ -161,7 +167,7 @@ repak으로 만든 pak은 인덱스가 암호화되지 않으며 원본 `.sig`�
 
 ## 6. 시험 설치
 
-게임을 종료한 상태에서 다음 파일을 설치합니다.
+`scripts/Install-KoreanPatch.ps1`이 게임을 종료한 상태에서 다음 파일을 설치합니다.
 
 ```text
 CGH/Binaries/Win64/dsound.dll
@@ -185,15 +191,15 @@ CGH/Content/Paks/CGH-Windows.pak
 
 ## 7. 저장소 갱신
 
-시험 설치에서 사용한 파일을 저장소의 동일 상대 경로에 복사합니다. 원본 pak, `.sig`,
-AES 키, Azure 키, 추출 폴더, 번역 캐시 및 도구 바이너리 전체는 저장하지 않습니다.
+시험 설치에서 사용한 한국어 locres, locmeta, 설치·복구 스크립트와 허용된 제3자
+바이너리만 저장소에 반영합니다.
 
-`CGH-Windows.pak`은 GitHub 일반 파일 제한을 넘으므로 Git LFS로 추적합니다.
+다음 항목은 저장하거나 배포하지 않습니다.
 
-```powershell
-git lfs track "CGH/Content/Paks/*.pak"
-git add .gitattributes
-git lfs ls-files
-```
+- 원본 또는 수정 `CGH-Windows.pak`, `.sig`
+- AES 키와 Azure 자격 증명
+- 추출 폴더, 번역 캐시, 원본 백업
+- pak에서 추출한 개별 게임 폰트
 
-마지막으로 배포 파일의 SHA-256, `git status`, 문서와 실제 경로가 일치하는지 확인합니다.
+`.gitignore`의 `CGH/Content/Paks/*.pak` 규칙을 유지합니다. 마지막으로 배포 파일의
+SHA-256, `git status`, 문서와 실제 경로가 일치하는지 확인합니다.

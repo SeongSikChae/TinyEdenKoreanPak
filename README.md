@@ -13,6 +13,7 @@ Tiny Eden의 UI와 게임 텍스트를 한국어로 표시하는 비공식 패�
 - 게임 업데이트 후 재구축 방법:
   [.cursor/rules/tiny-eden-rebuild.mdc](.cursor/rules/tiny-eden-rebuild.mdc)
 - 배포 파일 무결성 값: [CHECKSUMS.sha256](CHECKSUMS.sha256)
+- 라이선스 및 제3자 저작물: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## 배포 파일
 
@@ -20,14 +21,19 @@ Tiny Eden의 UI와 게임 텍스트를 한국어로 표시하는 비공식 패�
 - `CGH/Binaries/Win64/UniversalSigBypasser.asi`
 - `CGH/Content/Localization/Game/Game.locmeta`
 - `CGH/Content/Localization/Game/ko/Game.locres`
-- `CGH/Content/Paks/CGH-Windows.pak`
+- `scripts/Install-KoreanPatch.ps1`
+- `scripts/Restore-Original.ps1`
 
-`CGH-Windows.pak`에는 게임에 원래 포함된 `NotoSansKR`를 UI 글꼴로 연결하기 위한
-변경이 포함됩니다. 수정 pak을 로드하려면 함께 제공되는 ASI 로더와
-UniversalSigBypasser가 필요합니다.
+저장소에는 원본 또는 수정된 `CGH-Windows.pak`을 포함하지 않습니다. 설치 스크립트가
+사용자의 정품 게임 pak을 로컬 작업 폴더에 풀고, 게임에 원래 포함된 `NotoSansKR`를
+UI 글꼴로 연결한 pak을 생성해 설치합니다. 생성된 pak은 Git에서 제외됩니다.
+
+자세한 실행 방법은 [INSTALL.md](INSTALL.md)를 참고하세요.
 
 ## 주의
 
 - 게임 업데이트나 Steam 파일 무결성 검사 후에는 패치를 다시 적용해야 할 수 있습니다.
 - 수정 pak과 서명 우회 도구는 해당 게임 빌드에 종속됩니다.
+- 루트 MIT 라이선스는 게임 자산과 제3자 바이너리에 적용되지 않습니다.
+- `UniversalSigBypasser.asi`는 CC BY-NC 4.0이므로 상업적으로 이용할 수 없습니다.
 - 비공식 패치이며 사용에 따른 책임은 사용자에게 있습니다.

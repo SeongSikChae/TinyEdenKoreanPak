@@ -10,3 +10,6 @@ Source/
 *.log
 *.tmp
 *.bak
+
+# 정품 게임 설치본에서 로컬로 생성하는 결과물
+CGH/Content/Paks/*.pak
