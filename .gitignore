@@ -1,0 +1,12 @@
+.vs/
+
+# 재구축 과정에서 생성되는 로컬 작업물
+work/
+tools/
+extract/
+backup/
+Restore/
+Source/
+*.log
+*.tmp
+*.bak

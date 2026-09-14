@@ -1,0 +1,199 @@
+---
+description: Tiny Eden 한국어 패치를 최신 게임 빌드에 맞춰 재구축하는 절차
+alwaysApply: true
+---
+
+# Tiny Eden 한국어 패치 재구축
+
+게임 업데이트 후 최신 원본을 기준으로 번역과 폰트 pak을 다시 만드는 절차입니다.
+명령은 PowerShell 기준이며 게임을 정상 구매·설치한 환경을 전제로 합니다.
+
+## 이번 패치의 작업 기준
+
+- 게임 버전: `0.10.6+1642`
+- 게임 빌드 파일 시각: 2026-09-13
+- 원본 `CGH-Windows.pak` 크기: 121,098,155바이트
+- 원본 pak SHA-256:
+  `FE66509DD0229E041A43EFFCACD28709184BB9B7F92EAD620F6CA9A44DFA5965`
+- 원본 `CGH-Windows.sig` SHA-256:
+  `82AE688D1ED89E731167AEEEDA9FEA45D8A8EFD0BC2145693CAD9C3D12A9A230`
+- Unreal pak 버전: V11
+- 마운트 지점: `../../../`
+- 압축: Oodle
+- path hash seed: `B3C6F6DB`
+- 번역 항목: 3,679개
+
+업데이트 판별 시 파일 크기만 믿지 말고 `Get-FileHash`로 전체 해시를 다시 기록합니다.
+
+## 사용 도구
+
+- [repak](https://github.com/trumank/repak) 0.2.3
+- [UnrealLocres](https://github.com/akintos/UnrealLocres) 1.1.0
+- Python 3.12 이상
+- Azure AI Translator
+  - `AZURE_TRANSLATE_ENDPOINT`
+  - `AZURE_TRANSLATE_KEY`
+  - 리전: `koreacentral`
+- [UniversalSigBypasser](https://github.com/rm-NoobInCoding/UniversalSigBypasser) 1.2
+- Ultimate ASI Loader 8.3.0 (`dsound.dll`)
+
+AES 키와 Azure 자격 증명은 저장소에 기록하지 않습니다. AES 키는 본인이 설치한 최신
+게임 실행 파일에서 합법적인 모딩 도구로 다시 확인합니다.
+
+## 1. 원본 백업 및 정보 기록
+
+```powershell
+$Game = "F:\SteamLibrary\steamapps\common\Tiny Eden"
+$Work = "C:\TinyEden-KO-Work"
+$Pak = "$Game\CGH\Content\Paks\CGH-Windows.pak"
+
+New-Item -ItemType Directory -Force "$Work\backup", "$Work\extract" | Out-Null
+Copy-Item $Pak "$Work\backup\CGH-Windows.pak"
+Copy-Item "$Game\CGH\Content\Paks\CGH-Windows.sig" "$Work\backup\CGH-Windows.sig"
+Get-FileHash $Pak -Algorithm SHA256
+& .\repak.exe --aes-key $env:TINY_EDEN_AES_KEY info $Pak
+```
+
+게임 폴더에서 직접 작업하지 말고 반드시 작업 폴더에 백업을 둡니다. 백업은 배포물이나
+Git 저장소에 넣지 않습니다.
+
+## 2. 최신 로컬라이제이션 추출
+
+```powershell
+$Key = $env:TINY_EDEN_AES_KEY
+cmd /c "".\repak.exe" --aes-key $Key get "$Pak" "CGH/Content/Localization/Game/en/Game.locres" > "$Work\extract\Game_en.locres""
+cmd /c "".\repak.exe" --aes-key $Key get "$Pak" "CGH/Content/Localization/Game/Game.locmeta" > "$Work\extract\Game.locmeta""
+
+Set-Location "$Work\extract"
+& .\UnrealLocres.exe export Game_en.locres Game_en.csv
+```
+
+UnrealLocres 1.1.0은 출력 인자를 무시하고 입력 파일 옆에 같은 기본 이름의 CSV를 만들 수
+있으므로 생성된 파일명을 확인합니다.
+
+## 3. 기존 번역 병합 및 신규 번역
+
+이전 한국어 CSV와 최신 영어 CSV를 다음 순서로 병합합니다.
+
+1. `key`와 `source`가 모두 같으면 이전 `target`을 재사용합니다.
+2. 키가 달라도 `source`가 완전히 같으면 검토된 기존 번역을 재사용합니다.
+3. 원문이 바뀌었거나 새로 생긴 항목만 Azure Translator로 번역합니다.
+4. `{name}`, `[{input}]`, `<pink>...</>`, `%s`, 줄바꿈 등의 토큰을 임시 값으로
+   보호한 뒤 번역하고 원래 토큰으로 복원합니다.
+5. 다음 수동 교정은 마지막에 다시 적용합니다.
+   - `Load` → `불러오기`
+   - `Exit` → `종료`
+   - `Back` → `뒤로`
+   - `Apply` → `적용`
+   - `Load and Start` → `채우고 시작`
+
+Azure 호출은 50개 이하로 묶고 HTTP 429 응답에는 30~120초 지수 대기를 적용합니다.
+중간 결과를 CSV로 저장해 중단 후 재개할 수 있게 합니다.
+
+완료 후 반드시 검사합니다.
+
+```python
+import csv
+import re
+
+token = re.compile(r"(\{[^{}]+\}|<[^>]+>|\[[^\[\]]+\]|%[sdif])")
+rows = list(csv.DictReader(open("Game_ko.csv", encoding="utf-8-sig")))
+
+assert len(rows) == 3679
+assert all(row["target"] for row in rows)
+assert all(
+    sorted(token.findall(row["source"])) == sorted(token.findall(row["target"]))
+    for row in rows
+)
+```
+
+## 4. locres와 locmeta 생성
+
+```powershell
+& .\UnrealLocres.exe import Game_en.locres Game_ko.csv -o Game_ko.locres
+```
+
+`Game.locmeta`에는 지원 문화권 수와 문자열 배열이 들어 있습니다. 최신 원본의 문화권
+목록에 `ko`를 한 번만 추가해 `Game_ko.locmeta`를 만듭니다. 이번 빌드에서는 문화권
+수가 11에서 12로 바뀌며 순서는 다음과 같습니다.
+
+`be`, `de`, `en`, `es-ES`, `fr`, `ja`, `ko`, `pl`, `pt-BR`, `ru`, `zh`, `zh-Hant`
+
+이전 locmeta를 무조건 재사용하지 말고 업데이트 후 원본 목록이 바뀌었는지 먼저
+비교합니다.
+
+## 5. 한글 폰트 pak 생성
+
+최신 원본 pak을 풉니다.
+
+```powershell
+& .\repak.exe --aes-key $Key unpack -o "$Work\unpacked" $Pak
+```
+
+다음 원본 폰트를 pak 안에서 찾습니다.
+
+`CGH/Content/__Trash/UI/Foundation/Fonts/NotoSans/NotoSansKR-Regular.ufont`
+
+이 파일로 아래 UI 폰트 파일의 내용만 교체합니다.
+
+- `CGH/Content/__Trash/UI/Fonts/Noto_Sans_SC/static/NotoSansSC-*.ufont`
+- `CGH/Content/__Trash/UI/Fonts/MontserratAlternates/MontserratAlternates-*.ufont`
+
+게임에 이미 포함된 Noto Sans KR을 사용하므로 Windows 시스템 글꼴을 배포하지 않습니다.
+폰트 교체 후 원본과 같은 설정으로 패킹합니다.
+
+```powershell
+$Seed = [Convert]::ToUInt32("B3C6F6DB", 16)
+& .\repak.exe --aes-key $Key pack `
+  --version V11 `
+  --compression Oodle `
+  --path-hash-seed $Seed `
+  --mount-point "../../../" `
+  "$Work\unpacked" `
+  "$Work\CGH-Windows-KO.pak"
+```
+
+repak으로 만든 pak은 인덱스가 암호화되지 않으며 원본 `.sig`와 일치하지 않습니다.
+따라서 아래 서명 우회 파일이 실행 파일과 같은 폴더에 필요합니다.
+
+- `CGH/Binaries/Win64/dsound.dll`
+- `CGH/Binaries/Win64/UniversalSigBypasser.asi`
+
+## 6. 시험 설치
+
+게임을 종료한 상태에서 다음 파일을 설치합니다.
+
+```text
+CGH/Binaries/Win64/dsound.dll
+CGH/Binaries/Win64/UniversalSigBypasser.asi
+CGH/Content/Localization/Game/Game.locmeta
+CGH/Content/Localization/Game/ko/Game.locres
+CGH/Content/Paks/CGH-Windows.pak
+```
+
+원본 `CGH-Windows.sig`는 유지합니다. 실행 후
+`%LOCALAPPDATA%\CGH\Saved\Logs\CGH.log`에서 다음을 확인합니다.
+
+- `CGH-Windows.pak`이 `../../../`에 마운트됨
+- 언어 설정이 `ko`로 적용됨
+- `MontserratAlternates-*.ufont`가 약 4,453KB 크기로 로드됨
+- `Fatal error`, ICU 초기화 실패, pak 마운트 실패가 없음
+
+이번 빌드에서는 위 조건까지 확인했습니다. 게임이 메뉴에서 종료된 탓에 최종 확인 시
+프로세스는 실행 중이 아니었지만, pak 마운트·`ko` 문화권·교체 폰트 로드는 로그에서
+정상으로 확인됐습니다.
+
+## 7. 저장소 갱신
+
+시험 설치에서 사용한 파일을 저장소의 동일 상대 경로에 복사합니다. 원본 pak, `.sig`,
+AES 키, Azure 키, 추출 폴더, 번역 캐시 및 도구 바이너리 전체는 저장하지 않습니다.
+
+`CGH-Windows.pak`은 GitHub 일반 파일 제한을 넘으므로 Git LFS로 추적합니다.
+
+```powershell
+git lfs track "CGH/Content/Paks/*.pak"
+git add .gitattributes
+git lfs ls-files
+```
+
+마지막으로 배포 파일의 SHA-256, `git status`, 문서와 실제 경로가 일치하는지 확인합니다.
