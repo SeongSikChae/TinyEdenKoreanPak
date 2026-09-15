@@ -11,6 +11,17 @@
 4. 최신 게임 실행 파일에서 확인한 AES 키를 준비합니다. AES 키는 저장소에 포함되지
    않습니다.
 
+선택 사항으로, 설치 전에 배포 파일의 SHA-256을 확인할 수 있습니다.
+
+```powershell
+Get-Content .\CHECKSUMS.sha256 | ForEach-Object {
+  $hash, $path = $_ -split "\s+", 2
+  if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $hash) {
+    throw "체크섬 불일치: $path"
+  }
+}
+```
+
 ## 설치
 
 PowerShell에서 저장소 폴더로 이동한 뒤 설치 스크립트를 실행합니다.
@@ -42,6 +53,9 @@ repak이 이미 있다면 자동 다운로드 대신 직접 지정할 수 있습
 `CGH-Windows.sig`는 삭제하거나 교체하지 않고 게임의 원본 파일을 유지합니다.
 게임을 실행한 뒤 설정의 Language에서 `한국어`를 선택합니다. Windows 표시 언어가
 한국어라면 `System Default (Korean)`으로 적용될 수도 있습니다.
+
+현재 배포 번역 파일 `CGH/Content/Localization/Game/ko/Game.locres`의 SHA-256은
+`0606A87B5BC7CDCB826EC9D7E6CE9738026DBA925377F805CCD7559D85859C46`입니다.
 
 ## 적용 확인
 
